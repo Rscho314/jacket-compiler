@@ -2,28 +2,27 @@
 
 (require parser-tools/lex)
 
-(provide j-lex)
+(provide lex/j)
 
-;; TODO: structs cannot be introspected at compile time.
-;; Maybe turn them into hash tables? (https://stackoverflow.com/a/16380043/2322456)
-(define-tokens val (ZERO ONE))
-(define-empty-tokens prim (PLUS EOF))
 
-(define j-lexer
+;; Use hash tables for introspection at compile time
+
+
+(define lexer/j
   (lexer
-   [#\0 (token-ZERO lexeme)]
-   [#\1 (token-ONE lexeme)]
+   [#\0 'ZERO]
+   [#\1 'ONE]
 
-   [#\+ (token-PLUS)]
+   [#\+ 'PLUS]
 
-   [" " (j-lexer input-port)]
+   [" " (lexer/j input-port)]
 
-   [(eof) (token-EOF)])) ;EOL will need to handled as well (end of J sentence)
+   [(eof) 'EOF])) ;EOL will need to handled as well (end of J sentence)
 
-(define (j-lex ip)
+(define (lex/j ip)
   (define (run acc)
-    (let ([tok (j-lexer ip)])
-      (if (equal? (token-name tok) 'EOF)
+    (let ([tok (lexer/j ip)])
+      (if (equal? tok 'EOF)
           (cons tok acc)
           (run (cons tok acc)))))
   (run '()))
@@ -32,13 +31,11 @@
   (require rackunit)
 
   ;; j-lexer
-  (check-equal? (token-name (j-lexer (open-input-string "0"))) 'ZERO)
-  (check-equal? (token-value (j-lexer (open-input-string "0"))) "0")
-  (check-equal? (token-name (j-lexer (open-input-string "1"))) 'ONE)
-  (check-equal? (token-value (j-lexer (open-input-string "1"))) "1")
-  (check-equal? (token-name (j-lexer (open-input-string "+"))) 'PLUS)
-  (check-equal? (j-lexer (open-input-string " ")) 'EOF)
+  (check-equal? (lexer/j (open-input-string "0")) 'ZERO)
+  (check-equal? (lexer/j (open-input-string "1")) 'ONE)
+  (check-equal? (lexer/j (open-input-string "+")) 'PLUS)
+  (check-equal? (lexer/j (open-input-string " ")) 'EOF)
 
   ;; j-lex
-  (check-equal? (j-lex (open-input-string "1 0 +"))
-                (list 'EOF 'PLUS (token-ZERO "0") (token-ONE "1"))))
+  (check-equal? (lex/j (open-input-string "1 0 +"))
+                (list 'EOF 'PLUS 'ZERO 'ONE)))
