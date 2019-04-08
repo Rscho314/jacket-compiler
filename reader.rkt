@@ -6,11 +6,9 @@
 
 (provide read-syntax)
 
-#;(define (read-syntax _ port)
-  (datum->syntax #f '(module j-mod "expander.rkt" (display "I work"))))
 (define (read-syntax _ port)
   (define token-list (rest (lex/j port)))
-  (define module-datum `(module j-mod "expander.rkt" (handle-args ,@token-list)))
+  (define module-datum `(module j-mod "expander.rkt" #(,@token-list)))
   (datum->syntax #f module-datum))
 
 (module+ test
