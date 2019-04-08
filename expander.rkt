@@ -14,28 +14,17 @@
 
 (define-syntax (handle-sentence stx)
   (syntax-case stx ()
-    #;[(handle-sentence _) #'(#%datum . 2)]
-    #;[(handle-sentence _) #'(display (#%datum . 2))]
-    #;[(handle-sentence a) #`(display (quote (#,dummy a)))]
-    [(handle-sentence a) #`(display (#,interpret a))]))
-
-(define-for-syntax (dummy args)
-  (datum->syntax #f(syntax->datum args)))
+    [(handle-sentence a) #`((current-print) (#,interpret a))]))
 
 (define-for-syntax (interpret args)
   (first (for/fold ([stack-acc empty])
                    ([arg args]
                     #:unless (void? arg))
-           (begin
-             (displayln arg)
-             (cond
-               [(equal? 'ZERO arg) (cons 0 stack-acc)]
-               [(equal? 'ONE arg) (cons 1 stack-acc)]
-               [(equal? 'PLUS arg)
-                (define op-result
-                  (+ (first stack-acc) (second stack-acc)))
-                (cons op-result (drop stack-acc 2))]
-               [else (error "not the droid you're looking for.")])))))
-
-#;(handle-sentence #'#(ONE ONE PLUS))
-#;(first (interpret 'ONE 'ZERO 'PLUS 'ONE 'PLUS))
+           (cond
+             [(equal? 'ZERO arg) (cons 0 stack-acc)]
+             [(equal? 'ONE arg) (cons 1 stack-acc)]
+             [(equal? 'PLUS arg)
+              (define op-result
+                (+ (first stack-acc) (second stack-acc)))
+              (cons op-result (drop stack-acc 2))]
+             [else (error "not the droid you're looking for.")]))))
