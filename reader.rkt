@@ -14,7 +14,7 @@
 
 (module+ test
   (require rackunit)
-  (check-eqv? (read-syntax "" (open-input-string "+01"))
+  (check-eqv? (read-syntax "" (open-input-string "+0+01"))
                 (datum->syntax
                  #f
                  '(module j-mod "expander.rkt" (handle-args ONE ZERO PLUS)))))
