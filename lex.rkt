@@ -2,40 +2,35 @@
 
 (require parser-tools/lex)
 
-(provide lex/j)
+(provide lexer/j
+         tok)
 
-
-;; Use hash tables for introspection at compile time
-
+(define-empty-tokens tok
+  (ZERO
+  ONE
+  PLUS
+  EOF))
 
 (define lexer/j
   (lexer
-   [#\0 'ZERO]
-   [#\1 'ONE]
 
-   [#\+ 'PLUS]
+   [#\0 (token-ZERO)]
+   [#\1 (token-ONE)]
 
-   [" " (lexer/j input-port)]
+   [#\+ (token-PLUS)]
+   
+   [#\space (lexer/j input-port)]
+   [(eof) (token-EOF)])) ;EOL will need to handled as well (end of J sentence)
 
-   [(eof) 'EOF])) ;EOL will need to handled as well (end of J sentence)
-
-(define (lex/j ip)
-  (define (run acc)
-    (let ([tok (lexer/j ip)])
-      (if (equal? tok 'EOF)
-          (cons tok acc)
-          (run (cons tok acc)))))
-  (run '()))
-
-(module+ test
+#;(module+ test
   (require rackunit)
 
   ;; j-lexer
-  (check-equal? (lexer/j (open-input-string "0")) 'ZERO)
-  (check-equal? (lexer/j (open-input-string "1")) 'ONE)
+  (check-equal? (lexer/j (open-input-string "0")) '(vec ZERO))
+  (check-equal? (lexer/j (open-input-string "1")) '(vec ONE))
   (check-equal? (lexer/j (open-input-string "+")) 'PLUS)
   (check-equal? (lexer/j (open-input-string " ")) 'EOF)
 
   ;; j-lex
-  (check-equal? (lex/j (open-input-string "1 0 +"))
+  (check-equal? (lex/j (open-input-string "+ 1 0"))
                 (list 'EOF 'PLUS 'ZERO 'ONE)))

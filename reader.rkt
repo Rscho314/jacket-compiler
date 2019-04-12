@@ -2,13 +2,14 @@
 
 ;; There is no parser bc J can't be parsed
 ;; Lexing still useful (can group multiple chars in single token)
-(require "lex.rkt")
+(require "lex.rkt"
+         "parser.rkt")
 
 (provide read-syntax)
 
 (define (read-syntax _ port)
-  (define token-list (rest (lex/j port)))
-  (define module-datum `(module j-mod "expander.rkt" #(,@token-list)))
+  (define semi-ast (parse/j port))
+  (define module-datum `(module j-mod "expander.rkt" #(,@semi-ast)))
   (datum->syntax #f module-datum))
 
 (module+ test
