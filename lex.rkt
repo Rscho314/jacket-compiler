@@ -36,7 +36,7 @@
    [#\+ '+]
    
    [#\space (lexer/j input-port)]
-   [(eof) '()])) ;EOL will need to handled as well (end of J sentence)
+   [(eof) '()]))
 
 (define (lex/j ip)
   (define (run acc)
