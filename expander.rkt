@@ -1,32 +1,36 @@
 #lang turnstile
 
+(require turnstile/no-unicode)
+
+(begin-for-syntax
+  (define-syntax-class int
+  (pattern a:integer)))
+
+(begin-for-syntax
+  (define-syntax-class vecint
+  (pattern (a:integer ...))))
+
+(define-base-types VecInt Int)
+
+(define-type-constructor -> #:arity > 0)
+
+(define-primop + : (-> VecInt VecInt VecInt))
+
+;; DATUM
+(define-typed-syntax #%datum
+  [(_ . (i:int ...+)) >>
+   --------
+   [/- (#%datum- . 'a) => VecInt]]
+  [(_ . i:integer) >>
+   --------
+   [/- (#%datum- . 'b) => Int]]
+  [(_ . x) >>
+   --------
+   [#:error (type-error #:src #'x
+                        #:msg "Unsupported literal: ~v" #'x)]])
 
 
-#;'((provide (rename-out [module-begin/j #%module-begin])         
-         #%app
-         #%datum
-         #%top)
-
-(require syntax/wrap-modbeg
-         (for-syntax syntax/parse
-                     racket))
-
-(define-syntax module-begin/j
-  (make-wrapping-module-begin #'handle-sentence))
-
-(define-syntax (handle-sentence stx)
-  (syntax-case stx ()
-    [(handle-sentence a) #`((current-print) (#,interpret a))]))
-
-(define-for-syntax (interpret args)
-  (first (for/fold ([stack-acc empty])
-                   ([arg args]
-                    #:unless (void? arg))
-           (cond
-             [(equal? 'ZERO arg) (cons 0 stack-acc)]
-             [(equal? 'ONE arg) (cons 1 stack-acc)]
-             [(equal? 'PLUS arg)
-              (define op-result
-                (+ (first stack-acc) (second stack-acc)))
-              (cons op-result (drop stack-acc 2))]
-             [else (error "not the droid you're looking for.")])))))
+#;(begin-for-syntax
+  (syntax-parse #'(1 1)
+    [v:vecint
+     (display (attribute v.vecint))]))

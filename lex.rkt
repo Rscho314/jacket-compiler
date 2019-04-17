@@ -1,36 +1,63 @@
 #lang racket
 
-(require parser-tools/lex)
+(require parser-tools/lex
+         (prefix-in : parser-tools/lex-sre))
 
-(provide lexer/j
-         tok)
+(provide lex/j)
 
-(define-empty-tokens tok
-  (ZERO
-  ONE
-  PLUS
-  EOF))
+;; super chobo, must improve!
+#;(define (read-vec s)
+  (define sv
+    (string-join (list s) #:before-first "#(" #:after-last ")"))
+    (vector->immutable-vector (read (open-input-string sv))))
+
+(define (read-vec s)
+  (read
+   (open-input-string
+    (string-join (list s) #:before-first "#(" #:after-last ")"))))
+
+(define-lex-abbrevs
+  ;; arrays
+  [vecone (:: #\1 (:* (:: #\space #\1)))]
+  [veczero (:: #\0 (:* (:: #\space #\0)))]
+  [vecouz (::
+           (:or
+            (:: vecone #\space veczero)
+            (:: veczero #\space vecone))
+           (:*
+            (:or
+             (:: vecone #\space veczero)
+             (:: veczero #\space vecone))))]
+  ;; base values
+  )
 
 (define lexer/j
   (lexer
+   ;; arrays
+   [vecouz (read-vec lexeme)]
+   [vecone (read-vec lexeme)]
+   [veczero (read-vec lexeme)]
 
-   [#\0 (token-ZERO)]
-   [#\1 (token-ONE)]
-
-   [#\+ (token-PLUS)]
+   [#\+ '+]
    
    [#\space (lexer/j input-port)]
-   [(eof) (token-EOF)])) ;EOL will need to handled as well (end of J sentence)
+   [(eof) '()])) ;EOL will need to handled as well (end of J sentence)
 
-#;(module+ test
+(define (lex/j ip)
+  (define (run acc)
+    (let ([tok (lexer/j ip)])
+      (if (equal? tok '())
+          acc
+          (run (cons tok acc)))))
+  (run '()))
+
+(module+ test
   (require rackunit)
 
-  ;; j-lexer
-  (check-equal? (lexer/j (open-input-string "0")) '(vec ZERO))
-  (check-equal? (lexer/j (open-input-string "1")) '(vec ONE))
+  (check-equal? (lexer/j (open-input-string "1")) '())
+  (check-equal? (lexer/j (open-input-string "0")) '())
   (check-equal? (lexer/j (open-input-string "+")) 'PLUS)
-  (check-equal? (lexer/j (open-input-string " ")) 'EOF)
+  (check-equal? (lexer/j (open-input-string " ")) '())
+  (check-equal? (lexer/j (open-input-string "1 0")) '())
+  (check-equal? (lexer/j (open-input-string "0 1")) '()))
 
-  ;; j-lex
-  (check-equal? (lex/j (open-input-string "+ 1 0"))
-                (list 'EOF 'PLUS 'ZERO 'ONE)))
