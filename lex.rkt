@@ -6,10 +6,10 @@
 (provide lex/j)
 
 ;; super chobo, must improve!
-(define (read-vec s)
+(define (read-vec s t)
   (define sv
-    (string-join (list s) #:before-first "#(" #:after-last ")"))
-    (vector->immutable-vector (read (open-input-string sv))))
+    (string-join (list s) #:before-first "(" #:after-last ")"))
+  (cons t (read (open-input-string sv))))
 
 (define-lex-abbrevs
   ;; arrays
@@ -29,9 +29,9 @@
 (define lexer/j
   (lexer
    ;; arrays
-   [vecouz (read-vec lexeme)]
-   [vecone (read-vec lexeme)]
-   [veczero (read-vec lexeme)]
+   [vecouz (read-vec lexeme 'oz)]
+   [vecone (read-vec lexeme 'o)]
+   [veczero (read-vec lexeme 'z)]
 
    [#\+ '+]
    
@@ -48,10 +48,4 @@
 
 (module+ test
   (require rackunit)
-
-  (check-equal? (lexer/j (open-input-string "1")) '())
-  (check-equal? (lexer/j (open-input-string "0")) '())
-  (check-equal? (lexer/j (open-input-string "+")) 'PLUS)
-  (check-equal? (lexer/j (open-input-string " ")) '())
-  (check-equal? (lexer/j (open-input-string "1 0")) '())
-  (check-equal? (lexer/j (open-input-string "0 1")) '()))
+  (check-equal? (lex/j (open-input-string "+0 1")) '()))

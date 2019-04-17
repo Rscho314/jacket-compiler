@@ -1,28 +1,27 @@
-#lang typed/racket
+#lang racket
+
+(require syntax/parse)
 
 (provide pre-expand)
 
-(define stack : (Listof Any) '())
+(define (make-syntax-list arglist)
+  (map
+   (λ (arg) (datum->syntax #f arg))
+   arglist))
 
-(define specialize
-  (case-lambda
-    [([stack : (Listof Any)]
-      [args : (Listof Any)])
-     (first
-      (for/fold ([stack : (Listof Any) empty])
-                ([arg (in-list args)])
-        (cond
-          [((make-predicate (Immutable-Vectorof Zero)) arg)
-           (cons arg stack)]
-          [((make-predicate (Immutable-Vectorof One)) arg)
-           (cons arg stack)]
-          [else (error "error")])))]
-    ;; case for empty program
-    [([stack : (Listof Any)]
-      [args : Void])
-     (void)]))
+(define (pre-expand arglist)
+  (define syntax-list (make-syntax-list arglist))
+  (map
+   (λ (s) (apply-type s))
+   syntax-list))
 
-(: pre-expand (-> (Listof Any) Any))
-(define (pre-expand args)
-  (specialize '()
-              args))
+(define apply-type
+  (syntax-parser
+    [((~literal o) i:integer ...+) 'VecOne]
+    [((~literal z) i:integer ...+) 'VecZero]
+    [((~literal oz) i:integer ...+) 'VecOZ]))
+
+(module+ test
+  (require rackunit)
+  (check-equal? (pre-expand '((oz 1 0))) '())
+  (check-equal? (pre-expand '((oz 1 0) (z 0 0 0))) '()))
