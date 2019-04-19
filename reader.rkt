@@ -9,11 +9,10 @@
 
 (define (read-syntax _ port)
   (define semi-ast (lex/j port))
-  (define module-datum `(module mod/j typed/racket ',@(pre-expand semi-ast)))
-  (datum->syntax #f module-datum)
-  #;(pre-expand semi-ast))
+  (define module-datum `(module mod/j typed/racket ,@(pre-expand semi-ast)))
+  (datum->syntax #f module-datum))
 
 (module+ test
   (require rackunit)
-  (check-equal? (read-syntax "" (open-input-string "0"))
+  (check-equal? (read-syntax "" (open-input-string "1"))
                 '()))
