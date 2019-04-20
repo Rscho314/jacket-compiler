@@ -7,9 +7,16 @@
 
 (provide read-syntax)
 
+;; the whole program is a list
+;; each line is read as a sublist
+(define (read-source port)
+  (map
+   (λ (s) (port->list read (open-input-string s)))
+   (port->lines port #:close? #f)))
+
 (define (read-syntax _ port)
-  (define semi-ast (lex/j port))
-  (define module-datum `(module mod/j typed/racket ,@(pre-expand semi-ast)))
+  #;(define semi-ast (lex/j port))
+  (define module-datum `(module mod/j "expander.rkt" ,@(read-source port)))
   (datum->syntax #f module-datum))
 
 (module+ test
