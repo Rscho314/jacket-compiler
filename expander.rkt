@@ -2,29 +2,42 @@
 
 (require (combine-in (prefix-in tr: (only-in typed/racket
                                   #%module-begin
-                                  #%top-interaction
-                                  #%datum))
+                                  #%top-interaction))
                      (except-in typed/racket
                                   #%module-begin
-                                  #%top-interaction
-                                  #%datum))
+                                  #%top-interaction))
          (for-syntax syntax/parse))
 
 (provide (rename-out [module-begin/j #%module-begin]
-                     [top-interaction/j #%top-interaction]
-                     [datum/j #%datum]))
+                     [top-interaction/j #%top-interaction]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#;(begin-for-syntax
- (define-syntax-class noun/j
-  [pattern (n:number ...+ ~rest r) #:attr expansion #`#(n ...)]))
+(begin-for-syntax
+  (define-syntax-class noun/j
+    [pattern (n:number ...+) #:attr expansion #`#(n ...)]))
 
 (begin-for-syntax
  (define-syntax-class verb/j
-  [pattern (~datum +) #:attr expansion #''+]))
+  [pattern (~datum +) #:attr expansion #`'+]))
 
-(define-for-syntax (interpret-for-syntax stx stack)
+(begin-for-syntax
+  (define-syntax-class adverb/j
+    [pattern (~literal dot) #:attr expansion #`dot])) ;cannot use "." bc belongs to racket syntax
+
+(begin-for-syntax
+ (define-syntax-class conjunction/j
+  [pattern (~datum &) #:attr expansion #`'&]))
+
+;; no punctuation syntax class, since "(" and ")" should behave the same as in racket (order of execution?)
+
+(begin-for-syntax
+ (define-syntax-class copula/j
+  [pattern (~datum =:) #:attr expansion #`'=:]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-for-syntax (interpret-syntax stx stack)
   (define (rec stx stack)
     (let* ([dat (syntax->datum stx)]
            [new-stack (cons dat stack)])
@@ -35,21 +48,21 @@
 (define-syntax (expand/j stx)
   (syntax-parse stx
     ;; noun
-    [(_ s ((~seq e:number ...+)))
-     #`(ann #,(car (interpret-for-syntax #`#(e ...) (syntax->datum #`s))) (Vectorof Number))]
-    [(_ s ((~seq e:number ...+) ~rest r))
-     (let ([new-stack (interpret-for-syntax #`#(e ...) (syntax->datum #`s))]) #`(expand/j #,new-stack r))]
+    [(_ s (e:noun/j))
+     #`#,(car (interpret-syntax #`e.expansion (syntax->datum #`s)))]
+    [(_ s (e:noun/j ~rest r))
+     (let ([new-stack (interpret-syntax #`e.expansion (syntax->datum #`s))]) #`(expand/j #,new-stack r))]
     ;; verb
     [(_ s (e:verb/j))
-     #`#,(car (interpret-for-syntax #`e (syntax->datum #`s)))]
+     #`#,(car (interpret-syntax #`e.expansion (syntax->datum #`s)))]
     [(_ s (e:verb/j ~rest r))
-     (let ([new-stack (interpret-for-syntax #`e (syntax->datum #`s))]) #`(expand/j #,new-stack r))]))
+     (let ([new-stack (interpret-syntax #`e.expansion (syntax->datum #`s))]) #`(expand/j #,new-stack r))]))
     
 
 #;(define-syntax (expand/j stx)
   (syntax-parse stx
-    #;[(_ s ((~seq e:number ...+) . r))
-     #`'(e ...)]))
+    [(_ s (e:noun/j))
+     #`e.expansion]))
 
 (define-syntax (module-begin/j stx)
   (syntax-parse stx
@@ -61,7 +74,3 @@
 (define-syntax (top-interaction/j stx)
   (syntax-case stx ()
     [(_ . a) #`a]))
-
-(define-syntax (datum/j stx)
-  (syntax-case stx ()
-    [(_ . a) #`(quote a)])) ;needs additional guard against passing keywords

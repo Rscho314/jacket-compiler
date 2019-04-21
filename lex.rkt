@@ -6,10 +6,10 @@
 (provide lex/j)
 
 ;; super chobo, must improve!
-(define (read-vec s t)
+(define (read-vec s)
   (define sv
     (string-join (list s) #:before-first "(" #:after-last ")"))
-  (cons t (read (open-input-string sv))))
+  (read (open-input-string sv)))
 
 (define-lex-abbrevs
   ;; arrays
@@ -29,9 +29,9 @@
 (define lexer/j
   (lexer
    ;; arrays
-   [vecouz (read-vec lexeme 'oz)]
-   [vecone (read-vec lexeme 'o)]
-   [veczero (read-vec lexeme 'z)]
+   [vecouz (read-vec lexeme)]
+   [vecone (read-vec lexeme)]
+   [veczero (read-vec lexeme)]
 
    [#\+ '+]
    
