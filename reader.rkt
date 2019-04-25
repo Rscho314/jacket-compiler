@@ -8,10 +8,9 @@
 (provide read-syntax)
 
 (define (read-syntax _ port)
-  (datum->syntax #f
-                 `(module mod/j "expander.rkt" ,(lex/j port))))
+  (datum->syntax #f `(module mod/j "expander.rkt" ,(lex/j port))))
 
 (module+ test
   (require rackunit)
-  (check-equal? (read-syntax "" (open-input-string "+1"))
+  (check-equal? (read-syntax "" (open-input-string "1 0 1"))
                 '()))

@@ -13,28 +13,20 @@
 
 (define-lex-abbrevs
   ;; arrays
-  [vecone (:: #\1 (:* (:: #\space #\1)))]
-  [veczero (:: #\0 (:* (:: #\space #\0)))]
-  [vecouz (::
-           (:or
-            (:: vecone #\space veczero)
-            (:: veczero #\space vecone))
-           (:*
-            (:or
-             (:: vecone #\space veczero)
-             (:: veczero #\space vecone))))]
+  [vecnum (:: numeric (:* (:: #\space numeric)))]
   ;; base values
   )
 
 (define lexer/j
   (lexer
    ;; arrays
-   [vecouz (read-vec lexeme)]
-   [vecone (read-vec lexeme)]
-   [veczero (read-vec lexeme)]
+   [vecnum (read-vec lexeme)]
 
    [#\+ '+]
-   
+
+   [#\( 'lparen]
+   [#\) 'rparen]
+   [#\newline '§]
    [#\space (lexer/j input-port)]
    [(eof) '()]))
 
@@ -44,8 +36,8 @@
       (if (equal? tok '())
           acc
           (run (cons tok acc)))))
-  (run '()))
+  (run '(§))) ;start with an start-of-line marker (see J parsing and exec II)
 
 (module+ test
   (require rackunit)
-  (check-equal? (lex/j (open-input-string "+0 1")) '()))
+  (check-equal? (lex/j (open-input-string "1 2 3 () \n")) '()))
