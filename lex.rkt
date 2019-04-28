@@ -13,7 +13,7 @@
 
 (define-lex-abbrevs
   ;; arrays
-  [vecnum (:: numeric (:* (:: #\space numeric)))]
+  [vecnum (:: (:+ numeric) (:* (:: #\space (:+ numeric))))]
   ;; base values
   )
 
@@ -40,4 +40,4 @@
 
 (module+ test
   (require rackunit)
-  (check-equal? (lex/j (open-input-string "1 2 3 () \n")) '()))
+  (check-equal? (lex/j (open-input-string "10 2 3 () \n")) '()))

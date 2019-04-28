@@ -26,14 +26,22 @@
 (provide (rename-out [module-begin/j #%module-begin]
                      [top-interaction/j #%top-interaction]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;; SYNTAX INTERPRETER DATASTRUCTURES
 (begin-for-syntax
+  ; The syntax interpreter uses syntax classes matching parts-of-speech
+  ; but the lib uses syntax classes matching racket datastructures that
+  ; correspond (ensuring semantic equivalence between the two).
+
+  (define-literal-set parts-of-speech
+    ; abstraction over syntax-parse options
+    #:for-syntax #:datum-literals (§ noun verb) ())
+  
   (define-syntax-class noun/j
-    [pattern (n:number ...+)
-             ; GOTCHA: data in array constructor syntax
-             ; is normally impicitely quoted, so we need explicit quoting!
-             #:attr exp #`(array #['n ...])])
+    ; single-element array reduces to a scalar
+    [pattern (n:number) #:attr expansion #`n]
+    ; gotcha: data in array constructor syntax
+    ; is normally implicitely quoted, but here we need explicit quoting!
+    [pattern (n1:number n2:number ...+) #:attr expansion #`(array #['n1 'n2 ...])])
 
   (define-syntax-class verb/j
     [pattern (~datum ^)])
@@ -43,21 +51,26 @@
              #:attr pos #'noun]
     [pattern e:verb/j
              #:attr pos #'verb]))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Proof-of-concept on scalars.
-; Those patterns are wrong/incomplete (also in the interpret-syntax-fragment)
-(define-syntax (monadic-pattern-zero stx)
+;; SYNTAX INTERPRETER PROCEDURES
+; Those patterns are wrong/incomplete (also in the interpret-syntax-fragment).
+; The stack size can in fact be >4.
+(define-syntax (monadic-pattern-zero/j stx)
   (syntax-parse stx
-    #:datum-literals (noun verb §)
-    [(_ (v:verb/j (n)) (§ verb noun) e)
-     #`(stx-env-ref v 'n)]))
+    #:literal-sets (parts-of-speech)
+    [(_ (v:verb/j n:noun/j (~optional (~rest _)))
+        (§ verb noun (~optional (~or* noun verb))) e) ; literal noun & verb case
+     #`(interpret-syntax-fragment/j
+        (#,(local-expand #`(stx-env-ref/j v n.expansion) 'expression #f))
+        (§ noun) e)]))
 
-(define-syntax (dyadic-pattern-two stx)
+(define-syntax (dyadic-pattern-two/j stx)
   (syntax-parse stx
-    #:datum-literals (noun verb §)
-    [(_ ((n1) v:verb/j (n2)) (§ noun verb noun) e)
-     #`(stx-env-ref v 'n1 'n2)]))
+    #:literal-sets (parts-of-speech)
+    [(_ (n1:noun/j v:verb/j n2:noun/j) (§ noun verb noun) e) ; literals
+     #`(interpret-syntax-fragment/j
+        (#,(local-expand #`(stx-env-ref/j v n1.expansion n2.expansion)
+                         'expression #f)) (§ noun) e)]))
 
 (define-syntax (interpret-syntax-fragment/j stx)
   ; Maintain a manual pos-stack: part-of-speech cannot be made a
@@ -68,29 +81,24 @@
   ; 3- compute the part-of-speech of the resulting fragment and adjust pos-stack
   ; 4- recur to seek another executable pattern
   (syntax-parse stx
-    #:datum-literals (noun verb §)
+    #:literal-sets (parts-of-speech)
     ; monadic application (pattern 0)
-    [(_ vs (~and (~var ps) (§ verb noun)) e)
-     #`(monadic-pattern-zero vs ps e)]
+    [(_ vs (~and (~var ps) (§ verb noun (~optional (~or* noun verb)))) e)
+     #`(monadic-pattern-zero/j vs ps e)]
     ; dyadic application (pattern 2)
     [(_ vs (~and (~var ps) (§ noun verb noun)) e)
-     #`(dyadic-pattern-two vs ps e)]
+     #`(dyadic-pattern-two/j vs ps e)]
     ;  termination condition (single value for now)
-    #;[(_ (v) ((~literal §) (~or noun verb)) ())
-     #`'v]
-    [(_ (n:noun/j) ((~literal §) noun) ())
-     #`n.exp] ; no variable for now, so we expand directly
-    [(_ (v:verb/j) ((~literal §) verb) ())
-     #`'v]
+    [(_ (v) (§ (~or* noun verb)) ()) #`v] ; (non-)literal value (noun, verb, etc.)
     ; end-of-line encounter (§)
-    [(_ (vs ...) (ps ...) ((~literal §) ~rest r))
+    [(_ (vs ...) (ps ...) (§ ~rest r))
      #`(interpret-syntax-fragment/j (vs ...) (§ ps ...) r)]
     ; part-of-speech encounter
     [(_ (vs ...) (ps ...) (e:pos/j ~rest r))
      #`(interpret-syntax-fragment/j (e vs ...) (e.pos ps ...) r)]
     ; debug
     [(_ vs ps e)
-     #`(raise-syntax-error 'interpret-syntax-fragment
+     #`(raise-syntax-error 'interpret-syntax-fragment/j
                            "debug condition"
                            (list 'vs 'ps 'e))]))
 
