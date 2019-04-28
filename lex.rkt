@@ -22,7 +22,7 @@
    ;; arrays
    [vecnum (read-vec lexeme)]
 
-   [#\+ '+]
+   [#\^ '^]
 
    [#\( 'lparen]
    [#\) 'rparen]

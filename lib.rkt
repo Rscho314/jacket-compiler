@@ -1,23 +1,16 @@
-#lang type-expander #:with-refinements
+#lang racket
 
-(require (only-in racket/unsafe/ops
-                  unsafe-vector-ref)
-         (for-syntax syntax/stx
-                     racket))
+(require (for-syntax syntax/parse)
+         math/base)
 
+(provide stx-env-ref)
 
-(: safe-vector-ref
-   (All (A) (-> ([v : (Vectorof A)]
-                 [n : Natural])
-                #:pre (v n)
-                (< n (vector-length v))
-                A)))
-(define safe-vector-ref unsafe-vector-ref)
+(define-syntax (stx-env-ref stx)
+  (syntax-parse stx
+    [(_ (~literal ^) n) #`(^-op n)]
+    [(_ (~literal ^) n1 n2) #`(^-op n1 n2)]))
 
-(define-type-expander (HomogeneousList stx)
-  (syntax-case stx ()
-    [(_ t n)
-     (number? (syntax-e #'n))
-     (with-syntax ([(t ...) (stx-map (const #'t)
-                                      (range (syntax-e #'n)))])
-       #'(List t ...))]))
+(define-syntax (^-op stx)
+  (syntax-parse stx
+    [(_ v1 v2) #`(expt v1 v2)]
+    [(_ v) #`(exp v)]))
