@@ -5,29 +5,35 @@
 
 (provide lex/j)
 
-;; super chobo, must improve!
+;; super chobo
 (define (read-vec s)
-  (define sv
-    (string-join (list s) #:before-first "(" #:after-last ")"))
-  (read (open-input-string sv)))
+  (map (λ (t) (read (open-input-string t))) (string-split s)))
 
 (define-lex-abbrevs
-  ;; arrays
   [vecnum (:: (:+ numeric) (:* (:: #\space (:+ numeric))))]
-  ;; base values
-  )
+  [name (:: (:+ alphabetic)
+            (:* (:or alphabetic numeric))
+            (:* (:: (:? #\_) (:+ (:or alphabetic numeric)))))])
 
 (define lexer/j
   (lexer
-   ;; arrays
+   ; name
+   [name (string->symbol lexeme)]
+   ; nouns
    [vecnum (read-vec lexeme)]
 
+   ;verbs
    [#\^ '^]
+   ;adverbs
 
+   ;assignment
+   ["=:" '=:] ;apparently, assignment symbols are treated as single symbols
+   ;punctuation
    [#\( 'lparen]
    [#\) 'rparen]
-   [#\newline '§]
+   ;helpers
    [#\space (lexer/j input-port)]
+   [#\newline '§]
    [(eof) '()]))
 
 (define (lex/j ip)
@@ -40,4 +46,4 @@
 
 (module+ test
   (require rackunit)
-  (check-equal? (lex/j (open-input-string "10 2 3 () \n")) '()))
+  (check-equal? (lex/j (open-input-string "r_34534_thr4_45=:10 2 3")) '()))

@@ -2,8 +2,7 @@
 
 ;; There is no parser bc J can't be parsed
 ;; Lexing still useful (can group multiple chars in single token)
-(require "lex.rkt"
-         "pre-expander.rkt")
+(require "lex.rkt")
 
 (provide read-syntax)
 
@@ -12,5 +11,5 @@
 
 (module+ test
   (require rackunit)
-  (check-equal? (read-syntax "" (open-input-string "1 0 1"))
+  (check-equal? (read-syntax "" (open-input-string "^3^2"))
                 '()))

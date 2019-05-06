@@ -1,1 +1,2 @@
-#lang reader "reader.rkt"2^5 4
+#lang reader "reader.rkt"
+4^3 4^2 1
