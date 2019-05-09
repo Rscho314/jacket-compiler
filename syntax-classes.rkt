@@ -8,20 +8,16 @@
 
 (begin-for-syntax
   ; J SYNTAX
-  (define-syntax-class noun/j
+  (define-splicing-syntax-class noun/j
     ; for simplicity, everything is lifted to an array for now
     ; gotcha: data in array constructor syntax
     ; is normally implicitely quoted, but here we need explicit quoting!
-    [pattern (n:number ...+) #:attr expansion #`(array #['n ...])])
+    [pattern (~seq n:number ...+)
+             ; This line expands to the exact same as normal use -> optimal
+             #:attr expansion #`(array #(#,@(reverse (syntax->list #'('n ...)))))])
   
   (define-syntax-class verb/j
     [pattern (~datum ^)])
-
-  (define-syntax-class pos/j
-    [pattern e:noun/j
-             #:attr pos #'noun]
-    [pattern e:verb/j
-             #:attr pos #'verb])
 
   (define-syntax-class newline-marker/j
     ; abstraction for all syntactic ops
@@ -31,7 +27,14 @@
   (define-syntax-class name/j
     ; identifiers defined by elimination
     ; means that correctness relies on the lexer
-    [pattern (~and (~var n) (~not :pos/j))])
+    [pattern (~and (~var n)
+                   (~not :number)
+                   (~not :verb/j)
+                   (~not :newline-marker/j)
+                   (~not (~literal =:))
+                   (~not (~literal =.))
+                   (~not (~literal lparen))
+                   (~not (~literal rparen)))])
   
   ; RACKET SYNTAX
   (define-syntax-class array/r

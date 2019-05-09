@@ -22,7 +22,7 @@
 ;assignment
 (define-syntax (=:/j stx)
   (syntax-parse stx
-    [(_ n e) #`(define n e)]))
+    [(_ n e) #`(begin (define n e))]))
 
 ;verbs
 (define-syntax (^/j stx)

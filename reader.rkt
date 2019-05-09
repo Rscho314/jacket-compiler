@@ -11,5 +11,5 @@
 
 (module+ test
   (require rackunit)
-  (check-equal? (read-syntax "" (open-input-string "^3^2"))
+  (check-equal? (read-syntax "" (open-input-string "^3^2 5"))
                 '()))

@@ -1,16 +1,11 @@
 #lang racket
-
+; TODO: handle parentheses better
 (require parser-tools/lex
          (prefix-in : parser-tools/lex-sre))
 
 (provide lex/j)
 
-;; super chobo
-(define (read-vec s)
-  (map (λ (t) (read (open-input-string t))) (string-split s)))
-
 (define-lex-abbrevs
-  [vecnum (:: (:+ numeric) (:* (:: #\space (:+ numeric))))]
   [name (:: (:+ alphabetic)
             (:* (:or alphabetic numeric))
             (:* (:: (:? #\_) (:+ (:or alphabetic numeric)))))])
@@ -20,7 +15,7 @@
    ; name
    [name (string->symbol lexeme)]
    ; nouns
-   [vecnum (read-vec lexeme)]
+   [(:+ numeric) (read (open-input-string lexeme))]
 
    ;verbs
    [#\^ '^]
@@ -46,4 +41,4 @@
 
 (module+ test
   (require rackunit)
-  (check-equal? (lex/j (open-input-string "r_34534_thr4_45=:10 2 3")) '()))
+  (check-equal? (lex/j (open-input-string "rparen=:10 2 3")) '()))
