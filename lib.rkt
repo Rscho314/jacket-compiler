@@ -4,6 +4,9 @@
 ; This will have to change in the future.
 ; There is no type checking whatsoever here.
 
+; TODO: the lib structure forbids programs such as
+; x=:^ .
+
 (require math/array
          (for-syntax syntax/parse))
 

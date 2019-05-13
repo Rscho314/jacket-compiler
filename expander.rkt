@@ -35,7 +35,13 @@
                                    verb
                                    adverb
                                    conjunction
-                                   name) ()))
+                                   name) ())
+
+  (define syntactic-environment
+    ; env needs to be mutable, otherwise
+    ; requires to explicitely pass it throughout
+    ; the syntactic interpreter
+    (make-hash)))
 
 ;; SYNTAX INTERPRETER PROCEDURES
 (define-syntax (monadic-zero/j stx)
@@ -61,13 +67,16 @@
 (define-syntax (is-seven/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (n:name/j =: (~or* x:name/j x:verb/j) _ ...)
-        (name =: _ p ...)
+    [(_ (n:name/j =: x _ ...)
+        (name =: (~and (~var pos) (~or* noun verb)) p ...)
         e)
-     #`(interpret-syntax-fragment/j
-        (#,(local-expand #`(stx-env-ref/j n =: x) 'expression #f))
-        (name p ...)
-        e)]))
+     #`(begin ; side-effect: insert binding into environment
+         (interpret-syntax-fragment/j
+          (#,(local-expand #`(stx-env-ref/j n =: x) 'expression #f))
+          (name p ...)
+          e)
+         #,(hash-set! syntactic-environment (syntax-e #`n) (syntax-e #`pos))
+         #;(displayln syntactic-environment))]))
 
 (define-syntax (interpret-syntax-fragment/j stx)
   ; + Maintain a manual pos-stack: part-of-speech cannot be made a
@@ -99,11 +108,17 @@
     ; name encounter WRONG: names MUST be replaced by a part-of-speech,
     ; otherwise impossible to further recognize execution patterns!
     ; i.e. there must be a purely syntactic environment
+    ; assignment case
+    [(_ (=: vs ...) (=: ps ...) (e:name/j ~rest r))
+     #`(interpret-syntax-fragment/j (e =: vs ...) (name =: ps ...) r)]
+    ; reference case
     [(_ (vs ...) (ps ...) (e:name/j ~rest r))
-     #`(interpret-syntax-fragment/j (e vs ...) (name ps ...) r)]
+     #`(interpret-syntax-fragment/j (e vs ...)
+                                    (#,(hash-ref syntactic-environment (syntax-e #`e)) ps ...)
+                                    r)]
     ; assignment symbol encounter
-    ; both the symbol and the name must be processed at once
-    ; to mark the difference between assignment and bound name encounter
+    ; =: corresponds to define & provide
+    ; =. corresponds to scoped define or let form
     [(_ (vs ...) (ps ...) (=: ~rest r))
      #`(interpret-syntax-fragment/j (=: vs ...) (=: ps ...) r)]
     ; debug

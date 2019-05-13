@@ -1,4 +1,6 @@
 #lang racket
+; The lexer unfortunately cannot be discarded, as quote has
+; syntactic meaning in scheme.
 ; TODO: handle parentheses better
 (require parser-tools/lex
          (prefix-in : parser-tools/lex-sre))
