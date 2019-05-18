@@ -12,7 +12,7 @@
 
 #lang racket
 
-(require (prefix-in tr:
+(require #;(prefix-in tr:
                     (only-in typed/racket
                              #%module-begin
                              #%top-interaction))
@@ -95,7 +95,8 @@
     [(_ vs (~and (~var ps) (name =: (~or* verb noun) _ ...)) e)
      #`(is-seven/j vs ps e)]
     ;  termination condition for values (single value for now)
-    [(_ (newline-marker v) (newline-marker (~or* noun verb name)) ()) #`v]
+    [(_ (newline-marker v) (newline-marker (~or* noun verb name)) ())
+     #`v]
     ; end-of-line encounter (newline-marker) with blank line skip (= multiple newline-markers)
     [(_ (vs ...) (ps ...) (:newline-marker/j ...+ ~rest r))
      #`(interpret-syntax-fragment/j (newline-marker vs ...) (newline-marker ps ...) r)]
@@ -131,7 +132,7 @@
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
     [(_ (newline-marker)) #`(#%module-begin)] ; empty program
-    [(_ es) #`(tr:#%module-begin
+    [(_ es) #`(#%module-begin
                (interpret-syntax-fragment/j () () es))]))
 
 (define-syntax (top-interaction/j stx)

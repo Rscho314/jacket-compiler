@@ -4,11 +4,9 @@
 ; This will have to change in the future.
 ; There is no type checking whatsoever here.
 
-; TODO: the lib structure forbids programs such as
-; x=:^ .
-
 (require math/array
-         (for-syntax syntax/parse))
+         (for-syntax syntax/parse)
+         "syntax-classes.rkt")
 
 (provide stx-env-ref/j)
 
@@ -16,19 +14,30 @@
   (syntax-parse stx
     #:datum-literals (^ =:)
     ;assignment
-    [(_ n =: e) #`(=:/j n e)]
+    [(_ n =: e:cav/j)
+     #`(=:/j n #,(local-expand #`(stx-env-ref/j e) 'expression #f))]  ; literal case
+    [(_ n =: e)
+     #`(=:/j n e)]
     ;verbs
-    [(_ ^ n) #`(^/j n)]
-    [(_ ^ n1 n2) #`(^/j n1 n2)]))
+    [(_ ^ n ...)
+     #`(^/j n ...)]))
 
 ;IMPLEMENTATIONS
 ;assignment
 (define-syntax (=:/j stx)
   (syntax-parse stx
-    [(_ n e) #`(begin (define n e))]))
+    [(_ n e)
+     #`(begin (define n e))]))
 
 ;verbs
 (define-syntax (^/j stx)
   (syntax-parse stx
-    [(_ v1 v2) #`(array-map expt v1 v2)]
-    [(_ v) #`(array-map exp v)]))
+    [(_ v1 v2)
+     #`(array-map expt v1 v2)]
+    [(_ v)
+     #`(array-map exp v)]
+    [(_)
+     ; cannot guess context -> must compile to case-lambda
+     #`(case-lambda
+         [(v) (array-map exp v)]
+         [(v1 v2) (array-map expt v1 v2)])]))
