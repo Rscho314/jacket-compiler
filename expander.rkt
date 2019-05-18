@@ -94,9 +94,12 @@
     ; assignment (pattern 7)
     [(_ vs (~and (~var ps) (name =: (~or* verb noun) _ ...)) e)
      #`(is-seven/j vs ps e)]
-    ;  termination condition for values (single value for now)
+    ; termination condition for values (single value for now)
     [(_ (newline-marker v) (newline-marker (~or* noun verb name)) ())
      #`v]
+    ; empty line
+    [(_ (newline-marker) (newline-marker) ())
+     #`(void)]
     ; end-of-line encounter (newline-marker) with blank line skip (= multiple newline-markers)
     [(_ (vs ...) (ps ...) (:newline-marker/j ...+ ~rest r))
      #`(interpret-syntax-fragment/j (newline-marker vs ...) (newline-marker ps ...) r)]
