@@ -47,22 +47,35 @@
 (define-syntax (monadic-zero/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (v e1:verb/j e2 e3 ...)
+    [(_ (v e1 e2 e3 ...)
         (pv _ _ pe3 ...)
         e)
      #`(interpret-syntax-fragment/j
         (v #,(local-expand #`(stx-env-ref/j e1 e2) 'expression #f) e3 ...)
-        (pv noun pe3 ...) e)]))
+        (pv noun pe3 ...)
+        e)]))
+
+(define-syntax (monadic-one/j stx)
+  (syntax-parse stx
+    #:literal-sets (parts-of-speech+names)
+    [(_ (v e1 e2 e3)
+        (pv _ _ _)
+        e)
+     #`(interpret-syntax-fragment/j
+        (v e1 #,(local-expand #`(stx-env-ref/j e2 e3) 'expression #f))
+        (pv verb noun)
+        e)]))
 
 (define-syntax (dyadic-two/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (v e1 e2:verb/j e3)
+    [(_ (v e1 e2 e3)
         (pv _ ...)
         e)
      #`(interpret-syntax-fragment/j
         (v #,(local-expand #`(stx-env-ref/j e2 e1 e3) 'expression #f))
-        (pv noun) e)]))
+        (pv noun)
+        e)]))
 
 (define-syntax (is-seven/j stx)
   (syntax-parse stx
@@ -88,6 +101,9 @@
     ; monadic application (pattern 0)
     [(_ vs (~and (~var ps) ((~or* newline-marker =:) verb noun _ ...)) e)
      #`(monadic-zero/j vs ps e)]
+    ; monadic application (pattern 1)
+    [(_ vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) verb verb noun)) e)
+     #`(monadic-one/j vs ps e)]
     ; dyadic application (pattern 2)
     [(_ vs (~and (~var ps) ((~or* newline-marker =: verb noun) noun verb noun _ ...)) e)
      #`(dyadic-two/j vs ps e)]
@@ -97,7 +113,7 @@
     ; termination condition for values (single value for now)
     [(_ (newline-marker v) (newline-marker (~or* noun verb name)) ())
      #`v]
-    ; empty line
+    ; empty program
     [(_ (newline-marker) (newline-marker) ())
      #`(void)]
     ; end-of-line encounter (newline-marker) with blank line skip (= multiple newline-markers)
@@ -106,7 +122,7 @@
     ; noun encounter: immediate expansion to racket array
     [(_ (vs ...) (ps ...) (e:noun/j ~rest r))
      #`(interpret-syntax-fragment/j (e.expansion vs ...) (noun ps ...) r)]
-    ; verb encounter: placement on stack as-is
+    ; verb encounter: placement on stack as-is (execution context currently unknown)
     [(_ (vs ...) (ps ...) (e:verb/j ~rest r))
      #`(interpret-syntax-fragment/j (e vs ...) (verb ps ...) r)]
     ; name encounter WRONG: names MUST be replaced by a part-of-speech,
