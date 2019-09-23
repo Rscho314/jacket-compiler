@@ -16,12 +16,14 @@
                     (only-in typed/racket
                              #%module-begin
                              #%top-interaction))
-         (for-syntax syntax/parse)
+         (for-syntax syntax/parse
+                     "lex.rkt")
          "syntax-classes.rkt"
          "lib.rkt")
 
 (provide (rename-out [module-begin/j #%module-begin]
-                     [top-interaction/j #%top-interaction]))
+                     [top-interaction/j #%top-interaction])
+         j)
 
 ;; SYNTAX INTERPRETER DATASTRUCTURES
 (begin-for-syntax
@@ -157,3 +159,6 @@
 (define-syntax (top-interaction/j stx)
   (syntax-case stx ()
     [(_ . a) #`a]))
+
+(define-syntax (j s)
+  #`(interpret-syntax-fragment/j () () #,(lex/j (open-input-string (cadr (syntax->datum s))))))

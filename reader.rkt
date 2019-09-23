@@ -8,8 +8,3 @@
 
 (define (read-syntax _ port)
   (datum->syntax #f `(module mod/j "expander.rkt" ,(lex/j port))))
-
-(module+ test
-  (require rackunit)
-  (check-equal? (read-syntax "" (open-input-string "^3^2 5"))
-                '()))

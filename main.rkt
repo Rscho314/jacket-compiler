@@ -32,16 +32,18 @@
   ;; Any code in this `test` submodule runs when this file is run using DrRacket
   ;; or with `raco test`. The code here does not run when this file is
   ;; required by another module.
-
-  '())
+  (require rackunit
+           "expander.rkt"
+           math/array)
+  (check-equal? (j "3^2") (array #(9)))
+  (check-equal? (j "3^1") (array #(3))))
 
 (module+ main
   ;; (Optional) main submodule. Put code here if you need it to be executed when
   ;; this file is run using DrRacket or the `racket` executable.  The code here
   ;; does not run when this file is required by another module. Documentation:
   ;; http://docs.racket-lang.org/guide/Module_Syntax.html#%28part._main-and-test%29
-
-  '())
+  )
 
 (module+ reader
   (require "reader.rkt")

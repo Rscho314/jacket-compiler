@@ -40,7 +40,3 @@
           acc
           (run (cons tok acc)))))
   (run '(§))) ;start with an start-of-line marker (see J parsing and exec II)
-
-(module+ test
-  (require rackunit)
-  (check-equal? (lex/j (open-input-string "rparen=:10 2 3")) '()))
