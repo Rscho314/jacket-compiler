@@ -12,7 +12,7 @@
 
 #lang racket
 
-(require #;(prefix-in tr:
+(require (prefix-in tr:
                     (only-in typed/racket
                              #%module-begin
                              #%top-interaction))
@@ -82,12 +82,12 @@
 (define-syntax (is-seven/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (n:name/j =: x _ ...)
+    [(_ (n:name/j =: x r ...)
         (name =: (~and (~var pos) (~or* noun verb)) p ...)
         e)
      #`(begin ; side-effect: insert binding into environment
          (interpret-syntax-fragment/j
-          (#,(local-expand #`(stx-env-ref/j n =: x) 'expression #f))
+          (#,(local-expand #`(stx-env-ref/j n =: x) 'expression #f) r ...)
           (name p ...)
           e)
          #,(hash-set! syntactic-environment (syntax-e #`n) (syntax-e #`pos))
@@ -112,12 +112,16 @@
     ; assignment (pattern 7)
     [(_ vs (~and (~var ps) (name =: (~or* verb noun) _ ...)) e)
      #`(is-seven/j vs ps e)]
-    ; termination condition for values (single value for now)
-    [(_ (newline-marker v) (newline-marker (~or* noun verb name)) ())
-     #`v]
+    ; program termination condition
+    [(_ (newline-marker v ...) (newline-marker (~or* noun verb name)) ())
+     #`(begin v ...)]
     ; empty program
     [(_ (newline-marker) (newline-marker) ())
      #`(void)]
+    ; line termination condition for values
+    ; place line result on value stack, reset pos stack, and continue
+    [(_ (newline-marker v ...) (newline-marker (~or* noun verb name)) e)
+     #`(interpret-syntax-fragment/j (v ...) () e)]
     ; end-of-line encounter (newline-marker) with blank line skip (= multiple newline-markers)
     [(_ (vs ...) (ps ...) (:newline-marker/j ...+ ~rest r))
      #`(interpret-syntax-fragment/j (newline-marker vs ...) (newline-marker ps ...) r)]
@@ -146,19 +150,21 @@
     ; debug
     [(_ vs ps e)
      #`(raise-syntax-error 'interpret-syntax-fragment/j
-                           "debug condition"
-                           (begin (displayln 'vs) (displayln 'ps) (displayln 'e)))]))
+                           (string-append "debug condition" "\n\t"
+                                          "value stack:\t" (~a 'vs) "\n\t"
+                                          "p-o-s stack:\t" (~a 'ps) "\n\t"
+                                          "current exp:\t" (~a 'e)))]))
 
 (define-syntax (module-begin/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (newline-marker)) #`(#%module-begin)] ; empty program
-    [(_ es) #`(#%module-begin
+    [(_ (newline-marker)) #`(tr:#%module-begin)] ; empty program
+    [(_ es) #`(tr:#%module-begin
                (interpret-syntax-fragment/j () () es))]))
 
 (define-syntax (top-interaction/j stx)
   (syntax-case stx ()
     [(_ . a) #`a]))
 
-(define-syntax (j s)
+(define-syntax (j s) ;this allows embedding into racket as a string (also useful for rackunit tests)
   #`(interpret-syntax-fragment/j () () #,(lex/j (open-input-string (cadr (syntax->datum s))))))
