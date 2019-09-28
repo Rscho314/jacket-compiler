@@ -5,7 +5,8 @@
 
    TODO
    ----
-   + Macro stepper internal error: bug? typed/racket required?
+   + Macro stepper internal error: bug in math/array when using untyped racket
+     (https://github.com/racket/math/issues/24)
    + How to handle the "anything" pattern in the J parse & execution table?
      - always null?
    + Handle names better (not by elimination as not part-of-speech)|#
@@ -37,62 +38,62 @@
                                    verb
                                    adverb
                                    conjunction
-                                   name) ())
-
-  (define syntactic-environment
-    ; env needs to be mutable, otherwise
-    ; requires to explicitely pass it throughout
-    ; the syntactic interpreter
-    (make-hash)))
+                                   name) ()))
 
 ;; SYNTAX INTERPRETER PROCEDURES
 (define-syntax (monadic-zero/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (v e1 e2 e3 ...)
+    [(_ (v expr1 expr2 expr3 ...)
         (pv _ _ pe3 ...)
-        e)
+        expr
+        env)
      #`(interpret-syntax-fragment/j
-        (v #,(local-expand #`(stx-env-ref/j e1 e2) 'expression #f) e3 ...)
+        (v #,(local-expand #`(stx-env-ref/j expr1 expr2) 'expression #f) expr3 ...)
         (pv noun pe3 ...)
-        e)]))
+        expr
+        env)]))
 
 (define-syntax (monadic-one/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (v e1 e2 e3)
+    [(_ (v expr1 expr2 expr3)
         (pv _ _ _)
-        e)
+        expr
+        env)
      #`(interpret-syntax-fragment/j
-        (v e1 #,(local-expand #`(stx-env-ref/j e2 e3) 'expression #f))
+        (v expr1 #,(local-expand #`(stx-env-ref/j expr2 expr3) 'expression #f))
         (pv verb noun)
-        e)]))
+        expr
+        env)]))
 
 (define-syntax (dyadic-two/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
-    [(_ (v e1 e2 e3)
+    [(_ (v expr1 expr2 expr3 r ...)
         (pv _ ...)
-        e)
+        expr
+        env)
      #`(interpret-syntax-fragment/j
-        (v #,(local-expand #`(stx-env-ref/j e2 e1 e3) 'expression #f))
+        (v #,(local-expand #`(stx-env-ref/j expr2 expr1 expr3) 'expression #f) r ...)
         (pv noun)
-        e)]))
+        expr
+        env)]))
 
 (define-syntax (is-seven/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
     [(_ (n:name/j =: x r ...)
         (name =: (~and (~var pos) (~or* noun verb)) p ...)
-        e)
-     #`(begin ; side-effect: insert binding into environment
-         (interpret-syntax-fragment/j
-          (#,(local-expand #`(stx-env-ref/j n =: x) 'expression #f) r ...)
-          (name p ...)
-          e)
-         #,(hash-set! syntactic-environment (syntax-e #`n) (syntax-e #`pos))
-         #;(displayln syntactic-environment))]))
+        expr
+        env)
+     #`(interpret-syntax-fragment/j
+        (#,(local-expand #`(stx-env-ref/j n =: x) 'expression #f) r ...)
+        (name p ...)
+        expr
+        #,(hash-set (syntax-e #`env) (syntax-e #`n) (syntax-e #`pos)))]))
 
+;; SYNTAX INTERPRETER MAIN LOOP
 (define-syntax (interpret-syntax-fragment/j stx)
   ; + Maintain a manual pos-stack: part-of-speech cannot be made a
   ;   type because types are unavailable before the end of expansion.
@@ -101,70 +102,75 @@
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
     ; monadic application (pattern 0)
-    [(_ vs (~and (~var ps) ((~or* newline-marker =:) verb noun _ ...)) e)
-     #`(monadic-zero/j vs ps e)]
+    [(_ vs (~and (~var ps) ((~or* newline-marker =:) verb noun _ ...)) expr env)
+     #`(monadic-zero/j vs ps expr env)]
     ; monadic application (pattern 1)
-    [(_ vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) verb verb noun)) e)
-     #`(monadic-one/j vs ps e)]
+    [(_ vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) verb verb noun)) expr env)
+     #`(monadic-one/j vs ps expr env)]
     ; dyadic application (pattern 2)
-    [(_ vs (~and (~var ps) ((~or* newline-marker =: verb noun) noun verb noun _ ...)) e)
-     #`(dyadic-two/j vs ps e)]
+    [(_ vs (~and (~var ps) ((~or* newline-marker =: verb noun) noun verb noun _ ...)) expr env)
+     #`(dyadic-two/j vs ps expr env)]
     ; assignment (pattern 7)
-    [(_ vs (~and (~var ps) (name =: (~or* verb noun) _ ...)) e)
-     #`(is-seven/j vs ps e)]
+    [(_ vs (~and (~var ps) (name =: (~or* verb noun) _ ...)) expr env)
+     #`(is-seven/j vs ps expr env)]
     ; program termination condition
-    [(_ (newline-marker v ...) (newline-marker (~or* noun verb name)) ())
+    [(_ (newline-marker v ...) (newline-marker (~or* noun verb name)) () env)
      #`(begin v ...)]
     ; empty program
-    [(_ (newline-marker) (newline-marker) ())
+    [(_ (newline-marker) (newline-marker) () env)
      #`(void)]
+    ; program ending with a newline
+    [(_ (newline-marker) (newline-marker) (~rest r) env)
+     #`(interpret-syntax-fragment/j () () r env)]
     ; line termination condition for values
     ; place line result on value stack, reset pos stack, and continue
-    [(_ (newline-marker v ...) (newline-marker (~or* noun verb name)) e)
-     #`(interpret-syntax-fragment/j (v ...) () e)]
+    [(_ (newline-marker v ...) (newline-marker (~or* noun verb name)) expr env)
+     #`(interpret-syntax-fragment/j (v ...) () expr env)]
     ; end-of-line encounter (newline-marker) with blank line skip (= multiple newline-markers)
-    [(_ (vs ...) (ps ...) (:newline-marker/j ...+ ~rest r))
-     #`(interpret-syntax-fragment/j (newline-marker vs ...) (newline-marker ps ...) r)]
+    [(_ (vs ...) (ps ...) (:newline-marker/j ...+ ~rest r) env)
+     #`(interpret-syntax-fragment/j (newline-marker vs ...) (newline-marker ps ...) r env)]
     ; noun encounter: immediate expansion to racket array
-    [(_ (vs ...) (ps ...) (e:noun/j ~rest r))
-     #`(interpret-syntax-fragment/j (e.expansion vs ...) (noun ps ...) r)]
+    [(_ (vs ...) (ps ...) (e:noun/j ~rest r) env)
+     #`(interpret-syntax-fragment/j (e.expansion vs ...) (noun ps ...) r env)]
     ; verb encounter: placement on stack as-is (execution context currently unknown)
-    [(_ (vs ...) (ps ...) (e:verb/j ~rest r))
-     #`(interpret-syntax-fragment/j (e vs ...) (verb ps ...) r)]
+    [(_ (vs ...) (ps ...) (e:verb/j ~rest r) env)
+     #`(interpret-syntax-fragment/j (e vs ...) (verb ps ...) r env)]
     ; name encounter WRONG: names MUST be replaced by a part-of-speech,
     ; otherwise impossible to further recognize execution patterns!
     ; i.e. there must be a purely syntactic environment
     ; assignment case
-    [(_ (=: vs ...) (=: ps ...) (e:name/j ~rest r))
-     #`(interpret-syntax-fragment/j (e =: vs ...) (name =: ps ...) r)]
+    [(_ (=: vs ...) (=: ps ...) (e:name/j ~rest r) env)
+     #`(interpret-syntax-fragment/j (e =: vs ...) (name =: ps ...) r env)]
     ; reference case
-    [(_ (vs ...) (ps ...) (e:name/j ~rest r))
+    [(_ (vs ...) (ps ...) (e:name/j ~rest r) env)
      #`(interpret-syntax-fragment/j (e vs ...)
-                                    (#,(hash-ref syntactic-environment (syntax-e #`e)) ps ...)
-                                    r)]
+                                    (#,(hash-ref (syntax-e #`env) (syntax-e #`e)) ps ...)
+                                    r
+                                    env)]
     ; assignment symbol encounter
     ; =: corresponds to define & provide
     ; =. corresponds to scoped define or let form
-    [(_ (vs ...) (ps ...) (=: ~rest r))
-     #`(interpret-syntax-fragment/j (=: vs ...) (=: ps ...) r)]
+    [(_ (vs ...) (ps ...) (=: ~rest r) env)
+     #`(interpret-syntax-fragment/j (=: vs ...) (=: ps ...) r env)]
     ; debug
-    [(_ vs ps e)
+    [(_ vs ps expr env)
      #`(raise-syntax-error 'interpret-syntax-fragment/j
                            (string-append "debug condition" "\n\t"
                                           "value stack:\t" (~a 'vs) "\n\t"
                                           "p-o-s stack:\t" (~a 'ps) "\n\t"
-                                          "current exp:\t" (~a 'e)))]))
+                                          "current exp:\t" (~a 'expr) "\n\t"
+                                          "syntax env:\t" (~a 'env)))]))
 
 (define-syntax (module-begin/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
     [(_ (newline-marker)) #`(tr:#%module-begin)] ; empty program
-    [(_ es) #`(tr:#%module-begin
-               (interpret-syntax-fragment/j () () es))]))
+    [(_ exprs) #`(tr:#%module-begin
+               (interpret-syntax-fragment/j () () exprs #,(hasheq)))]))
 
 (define-syntax (top-interaction/j stx)
   (syntax-case stx ()
     [(_ . a) #`a]))
 
 (define-syntax (j s) ;this allows embedding into racket as a string (also useful for rackunit tests)
-  #`(interpret-syntax-fragment/j () () #,(lex/j (open-input-string (cadr (syntax->datum s))))))
+  #`(interpret-syntax-fragment/j () () #,(lex/j (open-input-string (cadr (syntax->datum s)))) #,(hasheq)))

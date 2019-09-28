@@ -14,7 +14,7 @@
     ; is normally implicitely quoted, but here we need explicit quoting!
     [pattern (~seq n:number ...+)
              ; This line expands to the exact same as normal use -> optimal
-             #:attr expansion #`(array #(#,@(reverse (syntax->list #'('n ...)))))])
+             #:attr expansion #`(array #(#,@(reverse (syntax->list #'((quote n) ...)))))])
 
   (define-syntax-class cav/j
     [pattern _:verb/j])
