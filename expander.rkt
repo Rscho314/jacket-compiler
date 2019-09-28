@@ -172,5 +172,13 @@
   (syntax-case stx ()
     [(_ . a) #`a]))
 
-(define-syntax (j s) ;this allows embedding into racket as a string (also useful for rackunit tests)
-  #`(interpret-syntax-fragment/j () () #,(lex/j (open-input-string (cadr (syntax->datum s)))) #,(hasheq)))
+; This allows embedding into racket as a string (also useful for rackunit tests)
+; However, breaking hygiene with syntax->datum is required (possible to restrict breakage to only 'define')?
+; see https://stackoverflow.com/questions/49669142/what-is-difference-between-datum-syntax-and-syntax-in-define-syntax-body
+; possibly required to manage '"': https://docs.racket-lang.org/udelim/index.html?q=udelim
+(define-syntax (j stx)
+      #`(interpret-syntax-fragment/j
+         ()
+         ()
+         #,(datum->syntax stx (lex/j (open-input-string (cadr (syntax->datum stx)))))
+         #,(hasheq)))
