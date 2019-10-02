@@ -10,6 +10,7 @@
 
 (provide stx-env-ref/j)
 
+;FUNCTION DISPATCH
 (define-syntax (stx-env-ref/j stx)
   (syntax-parse stx
     #:datum-literals (^ =:)

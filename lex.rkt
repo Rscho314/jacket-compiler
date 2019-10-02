@@ -33,10 +33,22 @@
    [#\newline '§]
    [(eof) '()]))
 
-(define (lex/j ip)
+#;(define (lex/j ip)
   (define (run acc)
     (let ([tok (lexer/j ip)])
       (if (equal? tok '())
           acc
           (run (cons tok acc)))))
   (run '(§))) ;start with an start-of-line marker (see J parsing and exec II)
+
+(define (lex/j ip)
+  (define (run acc-file acc-line)
+    (let ([tok (lexer/j ip)])
+      (if (equal? tok '())
+          (flatten (reverse (cons acc-line (cons '§ acc-file))))
+          (if (equal? tok '§)
+           (run (cons acc-line acc-file) (list tok))
+           (run acc-file (cons tok acc-line))))))
+  (run '() '())) ;start with an start-of-line marker (see J parsing and exec II)
+
+;(lex/j (open-input-string "a=:6 \n a")) ;'(4 ^ 3 § 2 ^ 1 §)

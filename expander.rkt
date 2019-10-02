@@ -166,7 +166,7 @@
     #:literal-sets (parts-of-speech+names)
     [(_ (newline-marker)) #`(tr:#%module-begin)] ; empty program
     [(_ exprs) #`(tr:#%module-begin
-               (interpret-syntax-fragment/j () () exprs #,(hasheq)))]))
+               (interpret-syntax-fragment/j () () exprs #,(hasheq)))])) ;env is an assoc list
 
 (define-syntax (top-interaction/j stx)
   (syntax-case stx ()
@@ -181,4 +181,4 @@
          ()
          ()
          #,(datum->syntax stx (lex/j (open-input-string (cadr (syntax->datum stx)))))
-         #,(hasheq)))
+         ()))
