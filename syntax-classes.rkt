@@ -18,9 +18,13 @@
 
   (define-syntax-class cav/j
     [pattern _:verb/j])
+
+  (define-syntax-class adverb/j
+    [pattern (~datum /)])
   
   (define-syntax-class verb/j
-    [pattern (~datum ^)])
+    [pattern (~datum ^)]
+    [pattern (~datum +)])
 
   (define-syntax-class newline-marker/j
     ; abstraction for all syntactic ops

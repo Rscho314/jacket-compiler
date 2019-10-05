@@ -22,7 +22,7 @@
    ;verbs
    [#\^ '^]
    ;adverbs
-
+   [#\/ '/]
    ;assignment
    ["=:" '=:] ;apparently, assignment symbols are treated as single symbols
    ;punctuation
@@ -51,4 +51,4 @@
            (run acc-file (cons tok acc-line))))))
   (run '() '())) ;start with an start-of-line marker (see J parsing and exec II)
 
-;(lex/j (open-input-string "a=:6 \n a")) ;'(4 ^ 3 § 2 ^ 1 §)
+;(lex/j (open-input-string "3"))
