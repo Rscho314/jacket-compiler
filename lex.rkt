@@ -14,17 +14,18 @@
 
 (define lexer/j
   (lexer
+   ;adverbs
+   [#\/ '/]
+   ;assignment
+   ["=:" '=:]
+   ;conjunctions
+   ["@:" '@:]
    ; name
    [name (string->symbol lexeme)]
    ; nouns
    [(:+ numeric) (read (open-input-string lexeme))]
-
    ;verbs
    [#\^ '^]
-   ;adverbs
-   [#\/ '/]
-   ;assignment
-   ["=:" '=:] ;apparently, assignment symbols are treated as single symbols
    ;punctuation
    [#\( 'lparen]
    [#\) 'rparen]
@@ -32,14 +33,6 @@
    [#\space (lexer/j input-port)]
    [#\newline '§]
    [(eof) '()]))
-
-#;(define (lex/j ip)
-  (define (run acc)
-    (let ([tok (lexer/j ip)])
-      (if (equal? tok '())
-          acc
-          (run (cons tok acc)))))
-  (run '(§))) ;start with an start-of-line marker (see J parsing and exec II)
 
 (define (lex/j ip)
   (define (run acc-file acc-line)
@@ -49,6 +42,6 @@
           (if (equal? tok '§)
            (run (cons acc-line acc-file) (list tok))
            (run acc-file (cons tok acc-line))))))
-  (run '() '())) ;start with an start-of-line marker (see J parsing and exec II)
+  (run '() '()))
 
 ;(lex/j (open-input-string "3"))

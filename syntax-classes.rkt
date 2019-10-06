@@ -21,6 +21,9 @@
 
   (define-syntax-class adverb/j
     [pattern (~datum /)])
+
+  (define-syntax-class conjunction/j
+    [pattern (~datum @:)])
   
   (define-syntax-class verb/j
     [pattern (~datum ^)]
@@ -36,6 +39,8 @@
     ; means that correctness relies on the lexer
     [pattern (~and (~var n)
                    (~not :number)
+                   (~not :adverb/j)
+                   (~not :conjunction/j)
                    (~not :verb/j)
                    (~not :newline-marker/j)
                    (~not (~literal =:))

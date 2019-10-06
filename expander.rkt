@@ -5,8 +5,9 @@
 
    TODO
    ----
-   + Finish adverb implementation (lib.rkt)
-   + Problem: the j embedding macro fails (see main.rkt)
+   + implement scalars (3 and 1$3 are different)
+   + finish implementing conjunctions
+   + Problem: array-axis-fold reverses args of the applied function
    + Macro stepper internal error: bug in math/array when using untyped racket
      (https://github.com/racket/math/issues/24)
    + How to handle the "anything" pattern in the J parse & execution table?
@@ -15,12 +16,10 @@
 
 #lang racket
 
-(require (prefix-in tr:
-                    (only-in typed/racket
-                             #%module-begin
-                             #%top-interaction))
+(require (prefix-in tr: typed/racket)
          (for-syntax syntax/parse
                      "lex.rkt")
+         math/array
          "syntax-classes.rkt"
          "lib.rkt")
 
@@ -47,17 +46,29 @@
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
     [(_ prs
-        (v expr1 expr2 expr3 ...)
-        (pv _ _ pe3 ...)
+        (v expr1:verb/j expr2 r ...)
+        (pv _ _ pr ...)
         expr
         env)
      #`(interpret-syntax-fragment/j
         prs
-        (v #,(local-expand #`(prim-env-ref/j expr1 expr2) 'expression #f) expr3 ...)
-        (pv noun pe3 ...)
+        (v (#,(local-expand #`(prim-env-ref/j monad) 'expression #f) #,(local-expand #`(prim-env-ref/j expr1 _) 'expression #f) expr2) r ...)
+        (pv noun pr ...)
+        expr
+        env)]
+    ; non-primitive verb (already has array-map)
+    [(_ prs
+        (v expr1 expr2 r ...)
+        (pv _ _ pr ...)
+        expr
+        env)
+     #`(interpret-syntax-fragment/j
+        prs
+        (v (expr1 expr2) r ...)
+        (pv noun pr ...)
         expr
         env)]))
-
+; implementation incorrect
 (define-syntax (monadic-one/j stx)
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
@@ -77,30 +88,69 @@
   (syntax-parse stx
     #:literal-sets (parts-of-speech+names)
     [(_ prs
-        (v expr1 expr2 expr3 r ...)
-        (pv _ ...)
-        expr
-        env)
-     #`(interpret-syntax-fragment/j
-        prs
-        (v #,(local-expand #`(prim-env-ref/j expr2 expr1 expr3) 'expression #f) r ...)
-        (pv noun)
-        expr
-        env)]))
-
-(define-syntax (adverb-three/j stx)
-  (syntax-parse stx
-    #:literal-sets (parts-of-speech+names)
-    #:datum-literals (/) ;other cases not implemented
-    [(_ prs
-        (v expr1 / expr3 r ...)
+        (h expr1 expr2:verb/j expr3 r ...)
         (pv _ _ _ pr ...)
         expr
         env)
      #`(interpret-syntax-fragment/j
         prs
-        (v (#,(local-expand #`(prim-env-ref/j expr1 /) 'expression #f) expr3) r ...)
-        (pv noun pr ...) ; is verb the only possibility? (according to p&e, an adverb may apply to a noun)
+        (h
+         (#,(local-expand #`(prim-env-ref/j dyad) 'expression #f) #,(local-expand #`(prim-env-ref/j expr2 _ _) 'expression #f) expr1 expr3)
+         r ...)
+        (pv noun pr ...)
+        expr
+        env)]
+    ; non-primitive verb (already has array-map)
+    [(_ prs
+        (v expr1 expr2 expr3 r ...)
+        (pv _ _ _ pr ...)
+        expr
+        env)
+     #`(interpret-syntax-fragment/j
+        prs
+        (v (expr2 expr1 expr3) r ...)
+        (pv noun pr ...)
+        expr
+        env)]))
+
+; implementation incorrect
+(define-syntax (adverb-three/j stx)
+  (syntax-parse stx
+    #:literal-sets (parts-of-speech+names)
+    [(_ prs
+        (h expr1 expr2 rest ...)
+        (pv _ _ pr ...)
+        expr
+        env)
+     #`(interpret-syntax-fragment/j
+        prs
+        ; expr1 should be the whole phrase (https://code.jsoftware.com/wiki/Vocabulary/Modifiers)
+        (h
+         ((tr:ann
+           (tr:λ (u a r) (λ (y) (a y r u)))
+           (tr:All (T) (tr:-> (tr:-> T T T) (tr:-> (Array T) tr:Integer (tr:-> T T T) (Array T)) tr:Index (tr:-> (Array T) (Array T)))))
+          #,(local-expand #'(prim-env-ref/j expr1) 'expression #f) ; unfortunately necessary bc array-axis-fold reverses arguments
+          #,(local-expand #'(prim-env-ref/j expr2) 'expression #f)
+          0)
+         rest ...)
+        (pv verb pr ...) ; can produce any part-of-speech, not only nouns
+        expr
+        env)]))
+
+; implementation incorrect
+(define-syntax (conjunction-four/j stx) ;todo
+  (syntax-parse stx
+    #:literal-sets (parts-of-speech+names)
+    [(_ prs
+        (v expr1 expr2 expr3 expr4 r ...)
+        (pv _ _ _ _ pr ...)
+        expr
+        env)
+     #`(interpret-syntax-fragment/j
+        prs
+        ; expr1 should be the whole phrase (https://code.jsoftware.com/wiki/Vocabulary/Modifiers)
+        (v (#,(local-expand #`(prim-env-ref/j expr1 expr2 expr3) 'expression #f) expr4) r ...)
+        (pv noun pr ...) ; can produce any part-of-speech, not only nouns
         expr
         env)]))
 
@@ -134,11 +184,15 @@
     [(_ prs vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) verb verb noun)) expr env)
      #`(monadic-one/j prs vs ps expr env)]
     ; dyadic application (pattern 2)
-    [(_ prs vs (~and (~var ps) ((~or* newline-marker =: verb noun) noun verb noun _ ...)) expr env)
+    [(_ prs vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) noun verb noun _ ...)) expr env)
      #`(dyadic-two/j prs vs ps expr env)]
-    ; adverb (pattern 3)
-    [(_ prs vs (~and (~var ps) ((~or* newline-marker =: verb noun) (~or* verb noun) adverb _ ...)) expr env)
+    ; adverb application (pattern 3)
+    ; u -> whole phrase on left side (init by first verb/noun with no conjunction as its u)
+    [(_ prs vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) (~or* verb noun) adverb _ ...)) expr env)
      #`(adverb-three/j prs vs ps expr env)]
+    ; conjunction application (pattern 4)
+    [(_ prs vs (~and (~var ps) ((~or* newline-marker =. =: adverb verb noun) (~or* verb noun) conjunction (~or* verb noun) _ ...)) expr env)
+     #`(conjunction-four/j prs vs ps expr env)]
     ; assignment (pattern 7)
     [(_ prs vs (~and (~var ps) (name =: (~or* verb noun) _ ...)) expr env)
      #`(is-seven/j prs vs ps expr env)]
@@ -167,6 +221,9 @@
     ; adverb encounter
     [(_ p (vs ...) (ps ...) (e:adverb/j ~rest r) env)
      #`(interpret-syntax-fragment/j p (e vs ...) (adverb ps ...) r env)]
+    ; conjunction encounter
+    [(_ p (vs ...) (ps ...) (e:conjunction/j ~rest r) env)
+     #`(interpret-syntax-fragment/j p (e vs ...) (conjunction ps ...) r env)]
     ; name encounter: assignment case
     [(_ p (=: vs ...) (=: ps ...) (e:name/j ~rest r) env)
      #`(interpret-syntax-fragment/j p (e =: vs ...) (name =: ps ...) r env)]
